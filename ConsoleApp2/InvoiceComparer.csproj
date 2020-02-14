@@ -71,9 +71,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="parse.cs" />
+    <Compile Include="Class1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Redtail.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
