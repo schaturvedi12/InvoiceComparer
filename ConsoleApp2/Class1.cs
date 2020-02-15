@@ -6,7 +6,6 @@ using System.Linq;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
-using libxl;
 
 namespace ConsoleApp2
 {
@@ -18,40 +17,56 @@ namespace ConsoleApp2
         public static List<KeyValuePair<string, string>> sourceDiff = new List<KeyValuePair<string, string>>();
         public static List<KeyValuePair<string, string>> destDiff = new List<KeyValuePair<string, string>>();
         //public static string line;
+        public static List<XElement> elementsToBeIgnoredOriginal = new List<XElement>();
         //public  static string Hiearchy;
+        public static List<KeyValuePair<XElement, bool>> elementsToBeIgnoredFormatted = new List<KeyValuePair<XElement, bool>>();
+        public static List<string> elementsToBeIgnoredOriginalNames = new List<string>();
         static void Main(string[] args)
         {
             try
             {
-                var masterFile = "C:\\Users\\schaturvedi\\Downloads\\810_20200131_032553.xml";
-                var childDir = "C:\\Users\\schaturvedi\\Downloads\\Invoices (1)\\";
+
+             Console.WriteLine("Enter Source Path");
+                var masterFile =  Console.ReadLine();
+
+                Console.WriteLine("Enter Target Path");
+                var childDir = Console.ReadLine();
 
 
-                //Console.WriteLine("Enter SourceFile path");
-                //var masterFile = Console.ReadLine();
-                //Console.WriteLine("Enter Target directory path");
-                //var childDir = Console.ReadLine();
-                //Console.WriteLine("Enter The final result file name");
-                //var name = Console.ReadLine();
-                //using (StreamReader sr = new StreamReader(Hiearchy))
-                //{
-                //    line = sr.ReadToEnd();
+                //var masterFile = "C:\\Users\\schaturvedi\\Downloads\\810_20200131_032553.xml";
+                //var childDir = "C:\\Users\\schaturvedi\\Downloads\\Invoices (1)\\";
+                //var hiearchyFile = "C:\\Users\\schaturvedi\\Downloads\\hiearchy.txt";
+                //var hXDOC = GetXDOC(GetSortedXML(hiearchyFile));
+                //elementsToBeIgnoredOriginal = hXDOC.Root.Elements().ToList();
 
-                //}
-
-                //var h = GetSortedXML(Hiearchy);
-                //var hi = GetXDOC(h);
                 var master = GetSortedXML(masterFile);
                 var masterxDoc = GetXDOC(master);
                 //  var hh = hi.Root.Descendants("InvoiceHeaderGroup").ToList();
                 var masterInvoices = masterxDoc.Root.Descendants("InvoiceHeaderGroup").ToDictionary(x => x.Element("InvoiceNumber").Value, x => x);
                 //var masterInvoices = masterxDoc.Root.Descendants("InvoiceHeaderGroup").ToList<KeyValuePair<string , string>>(x => x.Element("InvoiceNumber").Value, x => x);
 
+                foreach (var e in elementsToBeIgnoredOriginal)
+                {
+                    if (!e.HasElements)//It means It's a hiearchy
+                        elementsToBeIgnoredFormatted.Add(new KeyValuePair<XElement, bool>(e, false));
+                    else
+                        elementsToBeIgnoredFormatted.Add(new KeyValuePair<XElement, bool>(e, true));
 
-
+                }
+                elementsToBeIgnoredOriginalNames = elementsToBeIgnoredFormatted.Select(x => x.Key.Name.LocalName).ToList();
                 string[] sourceFiles = Directory.GetFiles(childDir, "*.xml");
                 string[] childfiles = sourceFiles.Distinct().ToArray();
-                var childInvoices = sourceFiles.Select(x => GetXDOC(GetSortedXML(x))).Select(x => x.Root.Descendants("InvoiceHeaderGroup")).ToDictionary(x => x.Select(y => y.Element("InvoiceNumber").Value).First(), x => x.First());
+                Dictionary<string, XElement> childInvoices = new Dictionary<string, XElement>();
+
+                foreach(var f in childfiles)
+                {
+                    var cf = GetXDOC(GetSortedXML(f)).Root.Descendants("InvoiceHeaderGroup");
+                    var iNumber = cf.Select(y => y.Element("InvoiceNumber").Value).First();
+                    if (!childInvoices.ContainsKey(iNumber))
+                    {
+                        childInvoices.Add(iNumber, cf.First());
+                    }
+                }
                 var masterInvoiceNumberList = masterInvoices.Keys.Union(childInvoices.Keys).ToList();
                 var baseDir = @"c:\DiffResult\";
                 var resultDir = baseDir;
@@ -65,21 +80,28 @@ namespace ConsoleApp2
                 resultDir = baseDir + "\\AbsenceList\\";
                 if (!Directory.Exists(resultDir))
                     Directory.CreateDirectory(resultDir);
-
                 using (StreamWriter s = new StreamWriter(resultDir + "Absence.txt"))
                 {
                     s.WriteLine("List of Invoices available in master xml but unavailable in individual xmls.");
                     availableInMasterOnly.ForEach(x => s.WriteLine(x));
+                    availableInMasterOnly.ForEach(x => masterInvoiceNumberList.Remove(x));
                     s.WriteLine("/----------------------------------------------------------------------/");
                     s.WriteLine("List of Invoices available in individual xmls but unavailable in master xml.");
                     availableInSourceOnly.ForEach(x => s.WriteLine(x));
+                    availableInSourceOnly.ForEach(x => masterInvoiceNumberList.Remove(x));
 
                 }
+
+
+                
+                List<string> identicalInvoices = new List<string>();
+
                 resultDir = baseDir + "\\DifferenceDir\\";
 
                 if (!Directory.Exists(resultDir))
                     Directory.CreateDirectory(resultDir);
-                string fileName = resultDir + "result" + ".txt";
+                string fileName = resultDir + "name" + ".csv";
+                File.Delete(fileName);
                 foreach (var i in masterInvoiceNumberList)
                 {
                     var filens = sourceFiles.Where(x => x.Contains(i)).FirstOrDefault();
@@ -112,17 +134,31 @@ namespace ConsoleApp2
                        
                     }
                     //while(result.Count>0)
+                    if (string.IsNullOrWhiteSpace(result?.Trim()))
+                        identicalInvoices.Add(i);
+                    else
+                    {
+                        result = "FileName" + "-" + filen + Environment.NewLine + "InvoiceNumber" + "-" + i + Environment.NewLine + result;
+                        result = Regex.Replace(result, @"^\s+$[\r\n]*", string.Empty, RegexOptions.Multiline);
+                        //if(result!=null)
+                        //File.WriteAllText(fileName, result);
+                        //File.WriteAllText(fileName, result);
+                        File.AppendAllText(fileName, result + Environment.NewLine);
+                        //File.AppendText(fileName, result);
+                    }
+
+
+
+
+                }
+                resultDir = baseDir + "\\Identical\\";
+                if (!Directory.Exists(resultDir))
+                    Directory.CreateDirectory(resultDir);
+                using (StreamWriter s = new StreamWriter(resultDir + "Identical.txt"))
+                {
+                    s.WriteLine("List of Invoices which are identical in master xml and in individual xmls.");
+                    identicalInvoices.ForEach(x => s.WriteLine(x));
                     
-                    result = "FileName" + "-" + filen + Environment.NewLine  + "InvoiceNumber" + "-" + i + Environment.NewLine + result ;
-                    result = Regex.Replace(result, @"^\s+$[\r\n]*", string.Empty, RegexOptions.Multiline);
-                    //if(result!=null)
-                    //File.WriteAllText(fileName, result);
-                    //File.WriteAllText(fileName, result);
-                    File.AppendAllText(fileName, result + Environment.NewLine);
-                    //File.AppendText(fileName, result);
-
-                   
-
                 }
 
 
@@ -133,6 +169,8 @@ namespace ConsoleApp2
 
             }
         }
+
+
         private static void SortXml(XContainer parent)
         {
             var elements = parent.Elements()
@@ -144,10 +182,48 @@ namespace ConsoleApp2
 
             foreach (var element in elements)
             {
-                parent.Add(element);
-                SortXml(element);
+                if (elementsToBeIgnoredOriginalNames.Contains(element.Name.LocalName))
+                {
+                    var formattedEle = elementsToBeIgnoredFormatted.Where(x => x.Key.Name.LocalName == element.Name.LocalName).FirstOrDefault();
+                
+                
+                    if (!XElement.DeepEquals(SortElement(element),SortElement(formattedEle.Key)))
+                    {
+                        parent.Add(element);
+                        SortXml(element);
+                    }
+
+                }
+                else
+                {
+
+                    parent.Add(element);
+                    SortXml(element);
+                }
+
             }
         }
+
+        private static XElement SortElement(XElement parent)
+        {
+            var elements = parent.Elements()
+                .OrderBy(e => e.Name.LocalName)
+                .ThenBy(e => (string)e.Attribute("name"))
+                .ToArray();
+
+            Array.ForEach(elements, e => e.Remove());
+
+            foreach (var element in elements)
+            {
+               
+
+                    parent.Add(element);
+                    SortXml(element);
+
+            }
+            return parent;
+        }
+
 
         private static string GetDiffString(XElement sourceFile, XElement fileToBeComapred)
         {
@@ -180,7 +256,7 @@ namespace ConsoleApp2
             }
             string resultString = string.Empty;
 
-            resultString = "InvoiceNumber" + "\t\t\t" + "Node" + "\t\t\t" + "Source file values" + "\t\t\t" + "Target file values" + Environment.NewLine;
+            resultString = "InvoiceNumber" + "," + "Node" + "," + "Source file values" + "," + "Target file values" + Environment.NewLine;
             
             foreach (var e in finalRes)
             {
@@ -200,9 +276,9 @@ namespace ConsoleApp2
                         sEnum.MoveNext();
                         dEnum.MoveNext();
                         if (count == 0)
-                            resultString += e.Item1 + "\t\t\t" + sEnum.Current + "\t\t\t" + dEnum.Current + Environment.NewLine;
+                            resultString += sourceFile.Element("InvoiceNumber").Value + "," + e.Item1 + "," + sEnum.Current + "," + dEnum.Current + Environment.NewLine;
                         else
-                            resultString += "\t" + "\t\t\t" + sEnum.Current + "\t\t\t" + dEnum.Current + Environment.NewLine;
+                            resultString += sourceFile.Element("InvoiceNumber").Value + ","+"" +","+ "Null" + sEnum.Current + "," + dEnum.Current + Environment.NewLine;
 
                         count++;
                     }
@@ -215,9 +291,9 @@ namespace ConsoleApp2
                         sEnum.MoveNext();
                         dEnum.MoveNext();
                         if (count == 0)
-                            resultString +=    sourceFile.Element("InvoiceNumber").Value  +  "\t\t\t"  +  "          " + e.Item1 + "\t\t\t" + sEnum.Current + "\t\t\t" + dEnum.Current + Environment.NewLine;
+                            resultString +=    sourceFile.Element("InvoiceNumber").Value  +  ","  + e.Item1 + "," + sEnum.Current + "," + dEnum.Current + Environment.NewLine;
                         else
-                            resultString +=   "\t\t\t" + sEnum.Current + "\t\t\t" + dEnum.Current + Environment.NewLine;
+                            resultString +=     sourceFile.Element("InvoiceNumber").Value + "," + ""+","+"Null" + "," + sEnum.Current + "," + dEnum.Current + Environment.NewLine;
 
                         //resultString =  "invoiceNumber" + sourceFile.Element("InvoiceNumber").Value  + resultString; 
                         count++;
