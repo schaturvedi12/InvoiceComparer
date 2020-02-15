@@ -26,18 +26,18 @@ namespace ConsoleApp2
             try
             {
 
-             Console.WriteLine("Enter Source Path");
-                var masterFile =  Console.ReadLine();
+                Console.WriteLine("Enter Source Path");
+                var masterFile = Console.ReadLine();
 
                 Console.WriteLine("Enter Target Path");
                 var childDir = Console.ReadLine();
 
 
-                //var masterFile = "C:\\Users\\schaturvedi\\Downloads\\810_20200131_032553.xml";
-                //var childDir = "C:\\Users\\schaturvedi\\Downloads\\Invoices (1)\\";
-                //var hiearchyFile = "C:\\Users\\schaturvedi\\Downloads\\hiearchy.txt";
-                //var hXDOC = GetXDOC(GetSortedXML(hiearchyFile));
-                //elementsToBeIgnoredOriginal = hXDOC.Root.Elements().ToList();
+                //var masterFile = "C:\\Users\\schaturvedi\\Downloads\\pk3.xml";
+                //var childDir = "C:\\Users\\schaturvedi\\Downloads\\invs\\";
+                var hiearchyFile = "C:\\Users\\schaturvedi\\Downloads\\hiearchy.txt";
+                var hXDOC = GetXDOC(GetSortedXML(hiearchyFile));
+                elementsToBeIgnoredOriginal = hXDOC.Root.Elements().ToList();
 
                 var master = GetSortedXML(masterFile);
                 var masterxDoc = GetXDOC(master);
@@ -101,7 +101,7 @@ namespace ConsoleApp2
                 if (!Directory.Exists(resultDir))
                     Directory.CreateDirectory(resultDir);
                 string fileName = resultDir + "name" + ".csv";
-                File.Delete(fileName);
+                //File.Delete(fileName);
                 foreach (var i in masterInvoiceNumberList)
                 {
                     var filens = sourceFiles.Where(x => x.Contains(i)).FirstOrDefault();
